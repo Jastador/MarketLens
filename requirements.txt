@@ -1,0 +1,9 @@
+numpy
+pandas
+python-dotenv
+yfinance
+scikit-learn
+streamlit
+plotly
+pytest
+ruff

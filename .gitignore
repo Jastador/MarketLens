@@ -1,0 +1,26 @@
+# Virtual environment
+.venv/
+
+# Environment variables and secrets
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Test and tooling cache
+.pytest_cache/
+.ruff_cache/
+
+# Local data and generated model files
+data/cache/
+data/raw/
+data/processed/
+artifacts/
+
+# Editor settings
+.vscode/
+
+# Operating system files
+.DS_Store
+Thumbs.db
