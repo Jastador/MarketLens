@@ -32,7 +32,7 @@ class HoldoutEvaluation:
     predictions: pd.DataFrame
 
 
-def _validate_model_dataset(dataset: pd.DataFrame) -> pd.DataFrame:
+def validate_model_dataset(dataset: pd.DataFrame) -> pd.DataFrame:
     """Validate model inputs before splitting, training, or evaluation."""
     if not isinstance(dataset, pd.DataFrame):
         raise TypeError("Model dataset must be a pandas DataFrame.")
@@ -103,7 +103,7 @@ def chronological_holdout_split(
             "train_fraction must be at least 0.50 and less than 1.00."
         )
 
-    validated = _validate_model_dataset(dataset)
+    validated = validate_model_dataset(dataset)
     split_position = int(len(validated) * fraction)
 
     train_dataset = validated.iloc[:split_position].copy()
@@ -126,7 +126,7 @@ def chronological_holdout_split(
 
 def fit_logistic_regression(train_dataset: pd.DataFrame) -> Pipeline:
     """Train a scaled logistic-regression classifier on historical features."""
-    validated = _validate_model_dataset(train_dataset)
+    validated = validate_model_dataset(train_dataset)
 
     features = validated.loc[:, list(FEATURE_COLUMNS)]
     target = validated[TARGET_COLUMN]
