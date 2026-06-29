@@ -3,7 +3,8 @@ import pytest
 
 from src.features.technical import (
     FEATURE_COLUMNS,
-    FORWARD_RETURN_COLUMN,
+    FORWARD_CLOSE_TO_CLOSE_RETURN_COLUMN,
+    NEXT_SESSION_RETURN_COLUMN,
     TARGET_COLUMN,
     build_feature_frame,
     prepare_model_dataset,
@@ -39,6 +40,26 @@ def _sample_history() -> pd.DataFrame:
     return _history_from_closes(closes)
 
 
+def _custom_session_history() -> pd.DataFrame:
+    """Create candles with known next-session open-to-close outcomes."""
+    dates = pd.date_range(
+        "2026-01-02",
+        periods=4,
+        freq="B",
+    )
+
+    return pd.DataFrame(
+        {
+            "Open": [99.0, 100.0, 105.0, 95.0],
+            "High": [101.0, 103.0, 106.0, 106.0],
+            "Low": [98.0, 99.0, 99.0, 94.0],
+            "Close": [100.0, 102.0, 100.0, 105.0],
+            "Volume": [1_000_000, 1_100_000, 900_000, 1_200_000],
+        },
+        index=dates,
+    )
+
+
 def test_build_feature_frame_creates_expected_columns():
     """Feature output should include all model inputs and future labels."""
     history = _sample_history()
@@ -47,7 +68,8 @@ def test_build_feature_frame_creates_expected_columns():
 
     expected_columns = {
         *FEATURE_COLUMNS,
-        FORWARD_RETURN_COLUMN,
+        FORWARD_CLOSE_TO_CLOSE_RETURN_COLUMN,
+        NEXT_SESSION_RETURN_COLUMN,
         TARGET_COLUMN,
     }
 
@@ -56,16 +78,27 @@ def test_build_feature_frame_creates_expected_columns():
     assert pd.isna(features[TARGET_COLUMN].iloc[-1])
 
 
-def test_target_uses_the_next_closing_price():
-    """The next-day target must come from tomorrow's close, not today's."""
-    history = _history_from_closes([100.0, 105.0, 95.0, 95.0])
+def test_target_uses_next_session_open_to_close_return():
+    """The target must reflect a trade entered at the next session open."""
+    history = _custom_session_history()
 
     features = build_feature_frame(history)
 
-    assert features[FORWARD_RETURN_COLUMN].iloc[0] == pytest.approx(0.05)
+    assert features[
+        FORWARD_CLOSE_TO_CLOSE_RETURN_COLUMN
+    ].iloc[1] == pytest.approx(-2 / 102)
+
+    assert features[
+        NEXT_SESSION_RETURN_COLUMN
+    ].iloc[0] == pytest.approx(2 / 100)
+
+    assert features[
+        NEXT_SESSION_RETURN_COLUMN
+    ].iloc[1] == pytest.approx(-5 / 105)
+
     assert features[TARGET_COLUMN].iloc[0] == 1
     assert features[TARGET_COLUMN].iloc[1] == 0
-    assert features[TARGET_COLUMN].iloc[2] == 0
+    assert features[TARGET_COLUMN].iloc[2] == 1
     assert pd.isna(features[TARGET_COLUMN].iloc[3])
 
 

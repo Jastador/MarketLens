@@ -25,8 +25,13 @@ FEATURE_COLUMNS = (
     "close_location",
 )
 
-FORWARD_RETURN_COLUMN = "forward_return_1d"
-TARGET_COLUMN = "target_next_up"
+FORWARD_CLOSE_TO_CLOSE_RETURN_COLUMN = (
+    "forward_close_to_close_return_1d"
+)
+NEXT_SESSION_RETURN_COLUMN = (
+    "next_session_open_to_close_return_1d"
+)
+TARGET_COLUMN = "target_next_session_up"
 
 
 def _validate_ohlcv(history: pd.DataFrame) -> pd.DataFrame:
@@ -77,8 +82,8 @@ def _validate_ohlcv(history: pd.DataFrame) -> pd.DataFrame:
     if (validated["High"] < validated["Low"]).any():
         raise ValueError("Historical data contains High values below Low values.")
 
-    if (validated["Close"] <= 0).any():
-        raise ValueError("Historical data contains non-positive Close values.")
+    if (validated["Open"] <= 0).any():
+        raise ValueError("Historical data contains non-positive Open values.")
 
     if (validated["Volume"] < 0).any():
         raise ValueError("Historical data contains negative Volume values.")
@@ -166,9 +171,20 @@ def build_feature_frame(history: pd.DataFrame) -> pd.DataFrame:
         .where(intraday_range.ne(0), 0.5)
     )
 
-    forward_return = close.shift(-1).div(close).sub(1)
+    forward_close_to_close_return = close.shift(-1).div(close).sub(1)
 
-    features[FORWARD_RETURN_COLUMN] = forward_return
+    features[FORWARD_CLOSE_TO_CLOSE_RETURN_COLUMN] = (
+        forward_close_to_close_return
+    )
+
+    next_session_open = features["Open"].shift(-1)
+    next_session_close = close.shift(-1)
+
+    next_session_return = (
+        next_session_close.div(next_session_open).sub(1)
+    )
+
+    features[NEXT_SESSION_RETURN_COLUMN] = next_session_return
 
     target = pd.Series(
         pd.NA,
@@ -176,10 +192,10 @@ def build_feature_frame(history: pd.DataFrame) -> pd.DataFrame:
         dtype="Int64",
     )
 
-    valid_target_rows = forward_return.notna()
+    valid_target_rows = next_session_return.notna()
 
     target.loc[valid_target_rows] = (
-        forward_return.loc[valid_target_rows] > 0
+        next_session_return.loc[valid_target_rows] > 0
     ).astype("int64")
 
     features[TARGET_COLUMN] = target
@@ -195,7 +211,7 @@ def prepare_model_dataset(history: pd.DataFrame) -> pd.DataFrame:
 
     required_columns = [
         *FEATURE_COLUMNS,
-        FORWARD_RETURN_COLUMN,
+        NEXT_SESSION_RETURN_COLUMN,
         TARGET_COLUMN,
     ]
 
